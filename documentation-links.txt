@@ -1,6 +1,13 @@
 REVPI documentation:
 https://revpimodio.org/en/quickstart/ 
+	RevPI camera connection: 
+		https://revolutionpi.com/forum/viewtopic.php?t=1263
 
 IMAGE DETECTION:
 https://stackoverflow.com/questions/58632469/how-to-find-the-orientation-of-an-object-shape-python-opencv --> Detecting orientation using openCV (python)
+
+RPI and camera usage:
+https://github.com/fullmakeralchemist/raspberrycamerasetup
+	CAMERA MODULE (ESP32-CAM): https://shop.m5stack.com/products/esp32-psram-timer-camera-ov3660?variant=36362174824612 --> Module z ESP32, transmita JPEG preko WiFi --> obdela RevPi nato !?
+
 
