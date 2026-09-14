@@ -1,0 +1,6 @@
+REVPI documentation:
+https://revpimodio.org/en/quickstart/ 
+
+IMAGE DETECTION:
+https://stackoverflow.com/questions/58632469/how-to-find-the-orientation-of-an-object-shape-python-opencv --> Detecting orientation using openCV (python)
+
