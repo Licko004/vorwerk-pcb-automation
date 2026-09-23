@@ -86,7 +86,7 @@ for c in big_cnts:
     (x, y, w, h) = cv2.boundingRect(c)
     fil_rect_area = w * h
     print(fil_rect_area)
-    if fil_rect_area <= 16500: #filtering by pixel area of contours
+    if fil_rect_area <= 13000: #filtering by pixel area of contours
         # cv2.rectangle(contour_filtered, (x, y), (x + w, y + h), (0, 0, 255), 2) # Draws rectangle around pcb, also including spikes etc
         rotrect = cv2.minAreaRect(c)
         box = cv2.boxPoints(rotrect)
