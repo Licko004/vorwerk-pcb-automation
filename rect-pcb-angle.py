@@ -5,7 +5,19 @@ import cv2 as cv2
 import imutils
 import numpy as np
 import time
+import board
+import neopixel
 
+# Configure the setup
+PIXEL_PIN = board.D18       # pin that the NeoPixel ring is connected to
+NUM_PIXELS = 24              # your ring has 24 LEDs
+ORDER = neopixel.GRBW        # RGBW ring
+BRIGHTNESS = 1.0             # full brightness
+
+pixels = neopixel.NeoPixel(PIXEL_PIN, NUM_PIXELS, brightness=BRIGHTNESS, pixel_order=ORDER)
+
+pixels.fill((0, 0, 0, 255))   # R, G, B, W
+pixels.show()
 
 from picamera2 import Picamera2
 picam2 = Picamera2()
@@ -78,9 +90,12 @@ for c in big_cnts:
         # cv2.rectangle(contour_filtered, (x, y), (x + w, y + h), (0, 0, 255), 2) # Draws rectangle around pcb, also including spikes etc
         rotrect = cv2.minAreaRect(c)
         box = cv2.boxPoints(rotrect)
-        box = np.intp(box)
+        box = np.int32(box)
         cv2.drawContours(contour_filtered, [box], 0, (0, 0, 255), 2)      
 
     
 cv2.imwrite("rect-fil-contours.png", contour_filtered)
+
+pixels.fill((0, 0, 0, 0))   # all channels off (use (0, 0, 0) if your ring is RGB, not RGBW)
+pixels.show()
 
