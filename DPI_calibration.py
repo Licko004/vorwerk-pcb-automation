@@ -65,5 +65,8 @@ px_per_mm_y = tray_h / tray_real_height_mm
 print("pix_per_mm_X", px_per_mm_x)
 print("pix_per_mm_Y", px_per_mm_y)
 
+avg_pixel_per_mm = (px_per_mm_x+px_per_mm_y)/2
+print(avg_pixel_per_mm)
+
 pixels.fill((0, 0, 0, 0))   # all channels off (use (0, 0, 0) if your ring is RGB, not RGBW)
 pixels.show()
