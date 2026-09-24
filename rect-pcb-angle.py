@@ -9,15 +9,15 @@ import board
 import neopixel
 
 # Configure the setup
-PIXEL_PIN = board.D18       # pin that the NeoPixel ring is connected to
-NUM_PIXELS = 24              # your ring has 24 LEDs
-ORDER = neopixel.GRBW        # RGBW ring
-BRIGHTNESS = 1.0             # full brightness
+# PIXEL_PIN = board.D18       # pin that the NeoPixel ring is connected to
+# NUM_PIXELS = 24              # your ring has 24 LEDs
+# ORDER = neopixel.GRBW        # RGBW ring
+# BRIGHTNESS = 1.0             # full brightness
 
-pixels = neopixel.NeoPixel(PIXEL_PIN, NUM_PIXELS, brightness=BRIGHTNESS, pixel_order=ORDER)
+# pixels = neopixel.NeoPixel(PIXEL_PIN, NUM_PIXELS, brightness=BRIGHTNESS, pixel_order=ORDER)
 
-pixels.fill((0, 0, 0, 255))   # R, G, B, W
-pixels.show()
+# pixels.fill((0, 0, 0, 255))   # R, G, B, W
+# pixels.show()
 
 from picamera2 import Picamera2
 picam2 = Picamera2()
@@ -72,7 +72,7 @@ big_cnts = []
 for c in cnts:
     (x, y, w, h) = cv2.boundingRect(c)
     cnt_area = w * h
-    if cnt_area >= 0.10 * avg_area:
+    if cnt_area > 0.20 * avg_area and cnt_area < 0.40 * avg_area:
         # thresh_filtered[y:y + h, x:x + w] = 0
         big_cnts.append(c)
         
@@ -86,7 +86,7 @@ for c in big_cnts:
     (x, y, w, h) = cv2.boundingRect(c)
     fil_rect_area = w * h
     print(fil_rect_area)
-    if fil_rect_area <= 13000: #filtering by pixel area of contours
+    if fil_rect_area > 4000 and fil_rect_area < 7000: #filtering by pixel area of contours
         # cv2.rectangle(contour_filtered, (x, y), (x + w, y + h), (0, 0, 255), 2) # Draws rectangle around pcb, also including spikes etc
         rotrect = cv2.minAreaRect(c)
         box = cv2.boxPoints(rotrect)
@@ -96,6 +96,6 @@ for c in big_cnts:
     
 cv2.imwrite("rect-fil-contours.png", contour_filtered)
 
-pixels.fill((0, 0, 0, 0))   # all channels off (use (0, 0, 0) if your ring is RGB, not RGBW)
-pixels.show()
+# pixels.fill((0, 0, 0, 0))   # all channels off (use (0, 0, 0) if your ring is RGB, not RGBW)
+# pixels.show()
 
