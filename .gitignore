@@ -3,10 +3,4 @@ rpi-repo-token.txt
 =======
 *.jpg
 *.png
-<<<<<<< HEAD
-
-token.txt
-token.txt.pub
-=======
 rpi-repo-token.txt
->>>>>>> 48eecfc878064c0b5b1252e7439556887c5e5c8a
