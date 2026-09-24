@@ -1,0 +1,76 @@
+import os
+os.environ["QT_QPA_PLATFORM"] = "wayland"
+
+import cv2 as cv2
+import imutils
+import numpy as np
+import time
+
+
+from picamera2 import Picamera2
+picam2 = Picamera2()
+
+picam2.preview_configuration.main.size = (1920,1080)
+picam2.preview_configuration.main.format = "RGB888"
+picam2.preview_configuration.align()
+picam2.configure("preview")
+
+picam2.start()
+time.sleep(2)
+img  = picam2.capture_file("test.png")
+time.sleep(1)
+
+img = cv2.imread("test.png")
+hh, ww, cc = img.shape
+
+# convert to gray
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+cv2.imwrite("grayscale-noise.png", gray)
+
+#Thresholding the grayscale image
+ret, thresh = cv2.threshold(gray,0,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
+cv2.imwrite("threshold-otsu.png", thresh)
+
+# Source - https://stackoverflow.com/a/59238613
+# Posted by chamith mawela
+# Retrieved 2026-09-23, License - CC BY-SA 4.0
+cnts = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+cnts = imutils.grab_contours(cnts)
+
+contour_unfiltered = img.copy()
+cv2.drawContours(contour_unfiltered, cnts, -1, (0, 255, 0), 2)
+cv2.imwrite("contours-unfiltered.png", contour_unfiltered) 
+
+cnts = sorted(cnts, key=cv2.contourArea, reverse=True)
+rect_areas = []
+for c in cnts:
+    (x, y, w, h) = cv2.boundingRect(c)
+    rect_areas.append(w * h)
+    
+avg_area = np.mean(rect_areas)
+rect_drawn = img.copy()
+
+for c in cnts:
+    (x, y, w, h) = cv2.boundingRect(c)
+    cv2.rectangle(rect_drawn, (x, y), (x + w, y + h), (0, 0, 255), 2)
+cv2.imwrite("contours-rectangles.png", rect_drawn)
+    
+big_cnts = []
+for c in cnts:
+    (x, y, w, h) = cv2.boundingRect(c)
+    cnt_area = w * h
+    if cnt_area >= 0.2 * avg_area:
+        # thresh_filtered[y:y + h, x:x + w] = 0
+        big_cnts.append(c)
+        
+        
+contour_filtered = img.copy()
+cv2.drawContours(contour_filtered, big_cnts, -1, (0, 255, 0), 2)
+cv2.imwrite("contours-filtered.png", contour_filtered)
+
+
+
+    
+        
+
