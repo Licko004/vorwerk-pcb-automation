@@ -4,3 +4,5 @@ rpi-repo-token.txt
 *.jpg
 *.png
 
+token.txt
+token.txt.pub
