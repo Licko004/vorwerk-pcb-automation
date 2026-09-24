@@ -72,7 +72,7 @@ big_cnts = []
 for c in cnts:
     (x, y, w, h) = cv2.boundingRect(c)
     cnt_area = w * h
-    if cnt_area >= 0.40 * avg_area:
+    if cnt_area >= 0.10 * avg_area:
         # thresh_filtered[y:y + h, x:x + w] = 0
         big_cnts.append(c)
         
