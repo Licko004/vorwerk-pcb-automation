@@ -85,6 +85,13 @@ cv2.imwrite("contours-filtered.png", contour_filtered) #create an image with the
 for c in big_cnts:
     (x, y, w, h) = cv2.boundingRect(c)
     fil_rect_area = w * h
+    # Draw dot in center of rectangles
+    cx = x + w/2
+    cy = y + h/2
+    cx_int = int(cx)
+    cy_int = int(cy)
+    print(cx,",",cy)
+    points_img = cv2.circle(contour_filtered, (cx_int,cy_int), 5, color = (0,0,255), thickness = -1)
     print(fil_rect_area)
     if fil_rect_area > 4000 and fil_rect_area < 7000: #filtering by pixel area of contours
         # cv2.rectangle(contour_filtered, (x, y), (x + w, y + h), (0, 0, 255), 2) # Draws rectangle around pcb, also including spikes etc
