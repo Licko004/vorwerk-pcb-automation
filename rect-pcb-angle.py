@@ -40,13 +40,12 @@ gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 # cv2.imwrite("grayscale-noise.png", gray)
 
 #Thresholding the grayscale image
-ret, thresh = cv2.threshold(gray,0,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
-# cv2.imwrite("threshold-otsu.png", thresh)
+ret, thresh = cv2.threshold(gray,0,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU) # catch the CONNECTOR contours
+ret_pcb, thresh_pcb = cv2.threshold(gray,150, 255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+cv2.imwrite("threshold-otsu-connector.png", thresh)
+cv2.imwrite("threshold-otsu-PCB.png", thresh_pcb)
 
-# Source - https://stackoverflow.com/a/59238613
-# Posted by chamith mawela
-# Retrieved 2026-09-23, License - CC BY-SA 4.0
-cnts = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_TC89_L1)
+cnts = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_TC89_L1) # CONNECTOR CONTOURS ie. ALL! WHITE PARTS ON CAPTURED IMAGE
 cnts = imutils.grab_contours(cnts)
 
 contour_unfiltered = img.copy()
@@ -55,7 +54,7 @@ cv2.imwrite("contours-unfiltered.png", contour_unfiltered)
 
 cnts = sorted(cnts, key=cv2.contourArea, reverse=True)
 rect_areas = []
-for c in cnts: # exclude largest found contour
+for c in cnts:
     (x, y, w, h) = cv2.boundingRect(c)
     rect_areas.append(w * h)
     
