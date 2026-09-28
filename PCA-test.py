@@ -110,7 +110,6 @@ for i, c in enumerate(contours):
 
     # Draw each contour only for visualisation purposes
     cv.drawContours(img, contours, i, (0, 0, 255), 2)
-    cv.imwrite("PCA-contours.png", contour_img)
     # Find the orientation of each shape
     angle, cntr, eigenvectors = getOrientation(c, img)
     angle_deg = math.degrees(angle)
@@ -119,19 +118,30 @@ for i, c in enumerate(contours):
     cntr = np.array(cntr, dtype=float)
     eigenvectors = np.array(eigenvectors, dtype=float)
     
+    v = eigenvectors[0].copy()      # long axis
+    if v[1] < 0:                    # force it to point down the image (+y)
+        v = -v
+
+    tilt_deg = math.degrees(atan2(v[0], v[1]))   # 0 = perfectly vertical
+    
+    # X-axis orientation to give angle the right sign
+    x_axis = eigenvectors[1].copy()
+    if x_axis[0] < 0:               # always point toward +x in the image
+        x_axis = -x_axis
+    
     DPI_X = 5.749716133480659 
     x_offset_wrld = 17.5 # 15.7mm measured using calipers
     x_offset_pix = DPI_X*x_offset_wrld
     
-    pick_point = cntr - x_offset_pix*eigenvectors[1]
+    pick_point = cntr - x_offset_pix*x_axis 
     
     cv.circle(img, tuple(pick_point.astype(int)), 5, (0, 255, 0), -1)
-    print("Center:", cntr)
+    # print("Center:", cntr)
     print("Pick point:", pick_point)
-    print("Angle: ", angle_deg)
+    print("Angle: ", tilt_deg)
 
 cv.imwrite("PCA-result.png", img)
-    
+cv.imwrite("PCA-contours.png", contour_img)
 
 # LEDRING OFF sequence:
 # pixels.fill((0, 0, 0, 0))   
