@@ -14,12 +14,12 @@ from picamera2 import Picamera2
 # ----------------------------------------------------------------------------
 # Settings
 # ----------------------------------------------------------------------------
-USE_LED = True                 # keep identical to the lighting used while tuning
+USE_LED = False                 # keep identical to the lighting used while tuning
 
 PIXEL_PIN = board.D18
 NUM_PIXELS = 24
 ORDER = neopixel.GRBW
-BRIGHTNESS = 1.0
+BRIGHTNESS = 0.75
 
 # Detection
 T = 155.5                        # gray threshold for the cream connector body
@@ -30,9 +30,9 @@ LONG_RANGE = (140, 170)
 SHORT_RANGE = (48, 92)
 MIN_FILL = 0.75                # area / (long * short), 1.0 = perfect rectangle
 
-# Pick point (unchanged from your version, orientation is fixed in a later step)
-DPI_X = 17.249447635881573     # pixels per mm
-X_OFFSET_MM = 17.5
+# Pick point 
+DPI_X = 10.597403195491156     # pixels per mm
+X_OFFSET_MM = 15.7
 
 
 # ----------------------------------------------------------------------------
@@ -163,7 +163,7 @@ for gc in green_contours:
 boards = [gc for gc in green_contours if cv.contourArea(gc) > MIN_BOARD_AREA]
 cv.drawContours(img, boards, -1, (255, 0, 0), 3)   # blue in BGR
 
-# --- once, after `boards` is built (before you draw on img) ---
+# Getting the center of the green PCB contour
 MAX_LINK_DIST = 300      # px, connector centre to its board centroid (tune)
 MIN_PROJ = 30            # px, below this the side is ambiguous
 
@@ -199,10 +199,12 @@ for i, c in enumerate(contours):
         continue
     found += 1
 
-    cv.drawContours(img, contours, i, (0, 0, 255), 2)
-    angle, cntr, eigenvectors = get_orientation(c, img)
+    # cv.drawContours(img, contours, i, (0, 0, 255), 2)
+    angle, _, eigenvectors = get_orientation(c, img)
+    M = cv.moments(c)
+    cntr = np.array([M["m10"] / M["m00"], M["m01"] / M["m00"]])
 
-    cntr = np.array(cntr, dtype=float)
+    # cntr = np.array(cntr, dtype=float)
     eigenvectors = np.array(eigenvectors, dtype=float)
     
     # --- inside the connector loop, replacing the x_axis flip and pick_point lines ---
@@ -220,6 +222,8 @@ for i, c in enumerate(contours):
     proj = float(np.dot(to_board, x_axis))
     if abs(proj) < MIN_PROJ:
         print(f"Connector at {cntr}: side is ambiguous (proj={proj:.0f}), skipping"); continue
+    
+    print(f"link dist={dists[j]:.0f}px  proj={proj:.0f}px")
 
     u = x_axis if proj > 0 else -x_axis      # points from connector into the board
     pick_point = cntr + X_OFFSET_MM * DPI_X * u
