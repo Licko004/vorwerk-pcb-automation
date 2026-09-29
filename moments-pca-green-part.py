@@ -20,12 +20,13 @@ NUM_PIXELS = 24
 ORDER = neopixel.GRBW
 BRIGHTNESS = 1.0
 
+
 # Connector detection
-T = 155                        # gray threshold for the cream connector body
+T = 150                        # gray threshold for the cream connector body
 TRAY_ERODE = 15                # keeps the tray edge out of the result
-LONG_RANGE = (140, 170)
+LONG_RANGE = (140, 180)
 SHORT_RANGE = (48, 92)
-MIN_FILL = 0.75                # area / (long * short), 1.0 = perfect rectangle
+MIN_FILL = 0.68                # area / (long * short), 1.0 = perfect rectangle
 
 # Green PCB detection (OpenCV hue runs 0-179)
 GREEN_LO = (55, 60, 40)
@@ -38,9 +39,9 @@ MIN_PROJ = 45                  # px
 
 # Pick point
 PX_PER_MM = 10.597403195491156
-PICK_OFFSET_MM = 5.0           # measured from the PCB centre along the chosen axis
+PICK_OFFSET_MM = 5.0           # depth of the pick point, measured from the PCB centre along u
                                # +  = away from the connector, - = toward the connector
-AXIS_SOURCE = "board"          # "board" = PCB's own edge direction, "connector" = connector short axis
+                               # (sideways position is taken from the connector centre)
 
 
 # ----------------------------------------------------------------------------
@@ -76,24 +77,19 @@ def moment_frame(c):
     return centre, long_axis, short_axis
 
 
-def board_axis(board_contour, ref_dir):
-    """Direction of the PCB's own edge that is closest to ref_dir, signed to agree with it.
-    Uses the min-area rectangle, because PCA is unreliable on a near-square shape."""
-    box = cv.boxPoints(cv.minAreaRect(board_contour))
-    e1 = box[1] - box[0]
-    e2 = box[2] - box[1]
-    e1 = e1 / np.linalg.norm(e1)
-    e2 = e2 / np.linalg.norm(e2)
-    best = e1 if abs(np.dot(e1, ref_dir)) > abs(np.dot(e2, ref_dir)) else e2
-    return best if np.dot(best, ref_dir) > 0 else -best
+def aligned_box(contour, origin, u, v):
+    """Bounding rectangle of a contour in the (u, v) frame. Its sides are parallel to
+    u and v, so it is never rotated relative to the connector. Returns 4 int corners."""
+    pts = contour.reshape(-1, 2).astype(float) - origin
+    pu, pv = pts @ u, pts @ v
+    corners = [origin + a * u + b * v
+               for a, b in ((pu.min(), pv.min()), (pu.max(), pv.min()),
+                            (pu.max(), pv.max()), (pu.min(), pv.max()))]
+    return np.array([ipt(p) for p in corners], dtype=np.int32)
 
 
 def angle_deg(v):
     return math.degrees(math.atan2(v[1], v[0]))
-
-
-def wrap_deg(a):
-    return (a + 180.0) % 360.0 - 180.0
 
 
 def blob_stats(c):
@@ -223,21 +219,21 @@ for c in contours:
         continue
 
     # Which way along the connector's short axis does the board lie?
-    to_board = board_centres[j] - cntr
+    board_c = board_centres[j]
+    to_board = board_c - cntr
     proj = float(np.dot(to_board, short_ax))
     if abs(proj) < MIN_PROJ:
         print(f"Connector at {cntr.round(0)}: side is ambiguous (proj={proj:.0f}), skipping")
         continue
-    u_conn = short_ax if proj > 0 else -short_ax          # connector -> board
 
-    # Direction estimates (they should agree within a degree or two)
-    u_board = board_axis(boards[j], u_conn)
-    u_line = to_board / np.linalg.norm(to_board)
-    u = u_board if AXIS_SOURCE == "board" else u_conn
+    # The PCB frame IS the connector frame
+    u = short_ax if proj > 0 else -short_ax        # connector -> board, into the PCB
+    v = np.array([-u[1], u[0]])                    # along the connector's long side
 
-    # Pick point: offset from the PCB centre along the chosen axis
-    board_c = board_centres[j]
-    pick_point = board_c + PICK_OFFSET_MM * PX_PER_MM * u
+    # Pick point: depth from the PCB centre along u, sideways position from the connector
+    # centre, so it lies opposite the middle of the connector's long side
+    lateral = float(np.dot(cntr - board_c, v))
+    pick_point = board_c + PICK_OFFSET_MM * PX_PER_MM * u + lateral * v
 
     inside = cv.pointPolygonTest(boards[j], (float(pick_point[0]), float(pick_point[1])), True)
     if inside < 0:
@@ -250,19 +246,19 @@ for c in contours:
     cv.drawContours(img, [c], -1, (0, 0, 255), 2)                                   # connector
     cv.circle(img, ipt(cntr), 5, (255, 0, 255), -1)                                 # connector centre
     draw_dir(img, cntr, long_ax, 60, (0, 255, 0), 2)                                # connector long axis
-    draw_dir(img, cntr, u_conn, 60, (255, 255, 0), 2)                               # connector short axis
-    box = cv.boxPoints(cv.minAreaRect(boards[j])).astype(np.int32)
-    cv.polylines(img, [box], True, (0, 255, 255), 2)                                # PCB min-area rect
+    draw_dir(img, cntr, u, 60, (255, 255, 0), 2)                                    # into-the-board axis
+    box = aligned_box(boards[j], board_c, u, v)
+    cv.polylines(img, [box], True, (0, 255, 255), 2)                                # PCB box, aligned to connector
     cv.circle(img, ipt(board_c), 6, (255, 0, 0), -1)                                # PCB centre
     cv.line(img, ipt(board_c), ipt(pick_point), (0, 255, 0), 1, cv.LINE_AA)
     cv.circle(img, ipt(pick_point), 7, (0, 255, 0), -1)                             # pick point
 
-    a_conn, a_board, a_line = angle_deg(u_conn), angle_deg(u_board), angle_deg(u_line)
+    # Sanity check: the connector->PCB-centre line differs from u only by atan(lateral / depth)
+    u_line = to_board / np.linalg.norm(to_board)
     print(f"\nConnector {found}: centre={cntr.round(1)}  board centre={board_c.round(1)}")
     print(f"  link dist={dists[j]:.0f}px ({dists[j] / PX_PER_MM:.1f}mm)  proj={proj:.0f}px")
-    print(f"  heading  connector axis={a_conn:.2f}  board edge={a_board:.2f}  centre-to-centre={a_line:.2f} deg")
-    print(f"  board edge - connector axis = {wrap_deg(a_board - a_conn):+.2f} deg")
-    print(f"  used ({AXIS_SOURCE}) heading = {angle_deg(u):.2f} deg")
+    print(f"  heading (connector axis) = {angle_deg(u):.2f} deg   centre-to-centre = {angle_deg(u_line):.2f} deg")
+    print(f"  lateral shift = {lateral:+.1f}px ({lateral / PX_PER_MM:+.2f}mm)")
     print(f"  pick={pick_point.round(1)}  margin to board edge={inside:.0f}px")
 
 print(f"\nConnectors accepted: {found} (expected 3)")
