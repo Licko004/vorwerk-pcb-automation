@@ -29,6 +29,11 @@ NUM_PIXELS = 24
 ORDER = neopixel.GRBW       
 BRIGHTNESS = 1.0             # full brightness
 
+# Connector dimensions, filtering parameters
+LONG_NOM, SHORT_NOM = 105, 52
+TOL = 0.2
+MIN_FILL = 0.8
+
 # Helper functions:
 
 # Get orientation of certain contour using PCA
@@ -80,6 +85,17 @@ def drawAxis(img, p_, q_, colour, scale):
     p[1] = q[1] + 9 * sin(angle - pi / 4)
     cv.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 1, cv.LINE_AA)
 
+# Connector filter    
+def is_connector(c):
+    (cx, cy), (w, h), _ = cv.minAreaRect(c)
+    long_s, short_s = max(w, h), min(w, h)
+    if short_s == 0:
+        return False
+    fill = cv.contourArea(c) / (long_s * short_s)
+    return (abs(long_s - LONG_NOM) < TOL * LONG_NOM and
+            abs(short_s - SHORT_NOM) < TOL * SHORT_NOM and
+            fill > MIN_FILL)
+
 # LEDRING ON sequence:
 pixels = neopixel.NeoPixel(PIXEL_PIN, NUM_PIXELS, brightness=BRIGHTNESS, pixel_order=ORDER)
 
@@ -93,33 +109,45 @@ picam2.start()
 img  = picam2.capture_file("raw-png-PCA.png")
 img = cv.imread("raw-png-PCA.png")
 
-# apply HSV and GRAYSCALE to image
-# hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+blur = cv.GaussianBlur(gray, (5, 5), 0)
 
-# Thresholding white region
-ret_white, thresh_white = cv.threshold(gray,0,255,cv.THRESH_BINARY | cv.THRESH_OTSU) #cv.THRESH_BINARY_INV  
+# 1) Tray mask: the tray is the largest dark blob (Otsu, inverted)
+_, dark = cv.threshold(blur, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU)
+cnts, _ = cv.findContours(dark, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+tray = max(cnts, key=cv.contourArea)
+tray_mask = np.zeros_like(gray)
+cv.drawContours(tray_mask, [tray], -1, 255, cv.FILLED)   # filled, so connectors inside are kept
+tray_mask = cv.erode(tray_mask, np.ones((15, 15), np.uint8))  # stay off the tray edge
+
+# 2) Bright connector body inside the tray only
+WHITE_T = 120   # tune: connector is much brighter than the tray and the green PCB
+_, bright = cv.threshold(blur, WHITE_T, 255, cv.THRESH_BINARY)
+thresh_white = cv.bitwise_and(bright, tray_mask)
+
+# 3) Clean up: open removes specks and thin pin glints, close fills holes
+thresh_white = cv.morphologyEx(thresh_white, cv.MORPH_OPEN,
+                               cv.getStructuringElement(cv.MORPH_RECT, (35, 35)))
+thresh_white = cv.morphologyEx(thresh_white, cv.MORPH_CLOSE,
+                               cv.getStructuringElement(cv.MORPH_RECT, (15, 15)))
 cv.imwrite("white_mask.png", thresh_white)
 
-contours, _ = cv.findContours(thresh_white, cv.RETR_LIST, cv.CHAIN_APPROX_NONE)
-contour_img = img.copy()
-cv.drawContours(contour_img, contours, -1, (0,255,0), 3)
-cv.imwrite("PCA-contours.png", contour_img)
+# 4) Now RETR_EXTERNAL is safe, since the paper is masked out
+contours, _ = cv.findContours(thresh_white, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
+
+for c in contours:
+    a = cv.contourArea(c)
+    (cx, cy), (w, h), _ = cv.minAreaRect(c)
+    print(f"area={a:.0f} center=({cx:.0f},{cy:.0f}) long={max(w,h):.0f} short={min(w,h):.0f}")
 
 # Find PCB connector contours
 cntr = []
 eigenvectors = []
 for i, c in enumerate(contours):
+    if not is_connector(c):
+        continue
     # Calculate the area of each contour
     area = cv.contourArea(c)
-    # if area > 7000:
-    #     print("Contours area: ", area)
-    # else:
-    #     continue
-    
-    # Ignore contours that are too small or too large
-    if area < 9000 or 14000 < area:
-        continue
 
     # Draw each contour only for visualisation purposes
     cv.drawContours(img, contours, i, (0, 0, 255), 2)
