@@ -22,12 +22,20 @@ pixels.show()
 from picamera2 import Picamera2
 picam2 = Picamera2()
 
-picam2.preview_configuration.main.size = (1920,1080)
+config = picam2.create_still_configuration(
+    main={"size": (3280, 2464), "format": "RGB888"},
+    raw={"size": (3280, 2464)},
+)
+
+picam2.preview_configuration.main.size = (3280,2464)
 picam2.preview_configuration.main.format = "RGB888"
 picam2.preview_configuration.align()
-picam2.configure("preview")
+picam2.configure(config)
 
 picam2.start()
+
+time.sleep(2)
+
 img  = picam2.capture_file("test.png")
 img = cv2.imread("test.png")
 
