@@ -112,10 +112,13 @@ eigenvectors = []
 for i, c in enumerate(contours):
     # Calculate the area of each contour
     area = cv.contourArea(c)
-    # print("Contours area: ", area)
+    # if area > 7000:
+    #     print("Contours area: ", area)
+    # else:
+    #     continue
     
     # Ignore contours that are too small or too large
-    if area < 8000 or 12000 < area:
+    if area < 9000 or 14000 < area:
         continue
 
     # Draw each contour only for visualisation purposes
