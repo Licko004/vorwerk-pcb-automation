@@ -14,10 +14,15 @@ from math import atan2, cos, sin, sqrt, pi
 from picamera2 import Picamera2
 picam2 = Picamera2()
 
-picam2.preview_configuration.main.size = (1920,1080)
+config = picam2.create_still_configuration(
+    main={"size": (3280, 2464), "format": "RGB888"},
+    raw={"size": (3280, 2464)},
+)
+
+picam2.preview_configuration.main.size = (3280,2464)
 picam2.preview_configuration.main.format = "RGB888"
 picam2.preview_configuration.align()
-picam2.configure("preview")
+picam2.configure(config)
 
 PIXEL_PIN = board.D18       # pin that the NeoPixel ring is connected to
 NUM_PIXELS = 24              
@@ -76,14 +81,16 @@ def drawAxis(img, p_, q_, colour, scale):
     cv.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 1, cv.LINE_AA)
 
 # LEDRING ON sequence:
-# pixels = neopixel.NeoPixel(PIXEL_PIN, NUM_PIXELS, brightness=BRIGHTNESS, pixel_order=ORDER)
+pixels = neopixel.NeoPixel(PIXEL_PIN, NUM_PIXELS, brightness=BRIGHTNESS, pixel_order=ORDER)
 
-# pixels.fill((0, 0, 0, 255))   # R, G, B, W
-# pixels.show()
+pixels.fill((0, 0, 0, 255))   # R, G, B, W
+pixels.show()
 
 picam2.start()
-img  = picam2.capture_file("raw-png-PCA.png")
 
+time.sleep(2)
+
+img  = picam2.capture_file("raw-png-PCA.png")
 img = cv.imread("raw-png-PCA.png")
 
 # apply HSV and GRAYSCALE to image
@@ -91,12 +98,15 @@ img = cv.imread("raw-png-PCA.png")
 gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
 # Thresholding white region
-ret_white, thresh_white = cv.threshold(gray,0,255,cv.THRESH_BINARY_INV | cv.THRESH_OTSU)
-# cv.imwrite("white_mask.png", thresh_white)
+ret_white, thresh_white = cv.threshold(gray,0,255,cv.THRESH_BINARY | cv.THRESH_OTSU) #cv.THRESH_BINARY_INV  
+cv.imwrite("white_mask.png", thresh_white)
 
 contours, _ = cv.findContours(thresh_white, cv.RETR_LIST, cv.CHAIN_APPROX_NONE)
 contour_img = img.copy()
+cv.drawContours(contour_img, contours, -1, (0,255,0), 3)
+cv.imwrite("PCA-contours.png", contour_img)
 
+# Find PCB connector contours
 cntr = []
 eigenvectors = []
 for i, c in enumerate(contours):
@@ -129,7 +139,7 @@ for i, c in enumerate(contours):
     if x_axis[0] < 0:               # always point toward +x in the image
         x_axis = -x_axis
     
-    DPI_X = 5.749716133480659 
+    DPI_X = 5.746331617642193
     x_offset_wrld = 17.5 # 15.7mm measured using calipers
     x_offset_pix = DPI_X*x_offset_wrld
     
@@ -141,8 +151,7 @@ for i, c in enumerate(contours):
     print("Angle: ", tilt_deg)
 
 cv.imwrite("PCA-result.png", img)
-cv.imwrite("PCA-contours.png", contour_img)
 
 # LEDRING OFF sequence:
-# pixels.fill((0, 0, 0, 0))   
-# pixels.show()
+pixels.fill((0, 0, 0, 0))   
+pixels.show()
