@@ -88,7 +88,7 @@ pixels.show()
 
 picam2.start()
 
-time.sleep(2)
+# time.sleep(2)
 
 img  = picam2.capture_file("raw-png-PCA.png")
 img = cv.imread("raw-png-PCA.png")
@@ -112,10 +112,10 @@ eigenvectors = []
 for i, c in enumerate(contours):
     # Calculate the area of each contour
     area = cv.contourArea(c)
-    #print("Contours area: ", area)
+    # print("Contours area: ", area)
     
     # Ignore contours that are too small or too large
-    if area < 2000 or 4000 < area:
+    if area < 8000 or 12000 < area:
         continue
 
     # Draw each contour only for visualisation purposes
@@ -139,7 +139,7 @@ for i, c in enumerate(contours):
     if x_axis[0] < 0:               # always point toward +x in the image
         x_axis = -x_axis
     
-    DPI_X = 5.746331617642193
+    DPI_X = 17.249447635881573
     x_offset_wrld = 17.5 # 15.7mm measured using calipers
     x_offset_pix = DPI_X*x_offset_wrld
     
