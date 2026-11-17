@@ -13,7 +13,7 @@ from picamera2 import Picamera2
 # ----------------------------------------------------------------------------
 # Settings
 # ----------------------------------------------------------------------------
-USE_LED = True                 # keep identical to the lighting used while tuning
+USE_LED = True        
 
 PIXEL_PIN = board.D18
 NUM_PIXELS = 24
@@ -38,7 +38,7 @@ MAX_LINK_DIST = 200            # px
 MIN_PROJ = 45                  # px
 
 # Pick point
-PX_PER_MM = 10.597403195491156
+PX_PER_MM = 5.7729898683978105 #10.597403195491156
 PICK_OFFSET_MM = 5.0           # depth of the pick point, measured from the PCB centre along u
                                # +  = away from the connector, - = toward the connector
                                # (sideways position is taken from the connector centre)
@@ -145,7 +145,7 @@ print("Image size (h, w, c):", img.shape)
 # Masks (computed before anything is drawn on img)
 # ----------------------------------------------------------------------------
 gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-blur = cv.GaussianBlur(gray, (5, 5), 0)
+blur = cv.GaussianBlur(gray, (3, 3), 0)
 hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
 
 # Tray mask: the tray is the largest dark blob (inverted Otsu)

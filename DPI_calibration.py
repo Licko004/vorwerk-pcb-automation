@@ -60,7 +60,7 @@ rect_areas = []
 for c in cnts:
     (x, y, w, h) = cv2.boundingRect(c)
     rect_areas.append(w * h)
-rotrect = cv2.minAreaRect(cnts[0])
+rotrect = cv2.minAreaRect(cnts[1])
 (tray_x, tray_y), (tray_w, tray_h), angle = rotrect
 print("rotrect:", rotrect)
 
