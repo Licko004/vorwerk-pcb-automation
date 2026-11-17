@@ -12,7 +12,7 @@ import neopixel
 PIXEL_PIN = board.D18       # pin that the NeoPixel ring is connected to
 NUM_PIXELS = 24              # your ring has 24 LEDs
 ORDER = neopixel.GRBW        # RGBW ring
-BRIGHTNESS = 1.0             # full brightness
+BRIGHTNESS = 0.5             # full brightness
 
 pixels = neopixel.NeoPixel(PIXEL_PIN, NUM_PIXELS, brightness=BRIGHTNESS, pixel_order=ORDER)
 
