@@ -124,8 +124,13 @@ probe_dist = PROBE_MM * DPI
 patch_half = int(round(PATCH_HALF_MM * DPI))
 pixel_length = LINE_LENGTH_MM * DPI
 
+ROW_TOL_MM = 3.0                       # two centres count as the same row if their y differs by less than this
+row_tol = ROW_TOL_MM * DPI             # same tolerance in pixels
+
+parts = []
 for k, c in enumerate(part_cnts, start=1):
     (x, y, w, h) = cv2.boundingRect(c)
+    parts.append((x + w / 2, y + h / 2, c))
 
     # Dot in the centre of the bounding rectangle
     cx = x + w / 2
@@ -157,6 +162,24 @@ for k, c in enumerate(part_cnts, start=1):
         cv2.rectangle(contour_filtered, (r[0], r[1]), (r[2], r[3]), (255, 255, 0), 1)
 
     print(f"\nPart {k}: centre=({cx:.0f},{cy:.0f})  green(+)={s_plus:.2f}  green(-)={s_minus:.2f}")
+    
+    # FINDING ITEMS IN SAME ROW
+    parts.sort(key=lambda p: p[1])
+    rows = []                              # each row is a list of (cx, cy, contour)
+    for p in parts:
+        if rows and abs(p[1] - np.mean([q[1] for q in rows[-1]])) < row_tol:
+            rows[-1].append(p)
+        else:
+            rows.append([p])
+
+    # Within each row, sort left to right
+    for row in rows:
+        row.sort(key=lambda p: p[0])
+
+    print(f"\nFound {len(rows)} row(s)")
+    for i, row in enumerate(rows, start=1):
+        print(f"  Row {i}: {len(row)} part(s), mean y = {np.mean([p[1] for p in row]):.0f}")
+    
 
     best = max(s_plus, s_minus)
     if best < MIN_GREEN or abs(s_plus - s_minus) < MIN_DIFF:
@@ -170,5 +193,6 @@ for k, c in enumerate(part_cnts, start=1):
     x2 = int(cx + pixel_length * u[0])
     y2 = int(cy + pixel_length * u[1])
     cv2.line(contour_filtered, (cx_int, cy_int), (x2, y2), color=(0, 255, 0), thickness=3)
-
+    
+    
 cv2.imwrite("rect-fil-contours.png", contour_filtered)
