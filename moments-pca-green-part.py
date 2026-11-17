@@ -168,7 +168,7 @@ for gc in green_contours:
 
 boards = []
 board_centres = []
-for gc in green_contours:
+for gc in green_contours:GREEN_LO, GREEN_HI
     if cv.contourArea(gc) <= MIN_BOARD_AREA:
         continue
     bc = centroid(gc)
