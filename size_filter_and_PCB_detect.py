@@ -21,7 +21,8 @@ BRIGHTNESS = 0.5             # 1 = full brightness
 MIN_AREA = 3500
 MAX_AREA = 8000
 
-DPI = 5.795367506260126 #6.279251163812498      # pixels per mm (must match the current camera height!)
+# DETERMINE DPI by running DPI_calibration.py!!
+DPI = 5.795367506260126      # pixels per mm (must match the current camera height!)
 LINE_LENGTH_MM = 17
 
 # Green probe: two small patches, one on each side of the connector along the line
@@ -86,7 +87,12 @@ gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 cv2.imwrite("threshold-otsu-connector.png", thresh)
 
-cnts = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_TC89_L1)
+kernel = np.ones((5,5),np.uint8) # square kernel for morphology operations
+# erosion = cv2.erode(thresh,kernel,iterations = 1) # thins out the contours
+opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+closing = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+
+cnts = cv2.findContours(closing, cv2.RETR_TREE, cv2.CHAIN_APPROX_TC89_L1) # change arg1, when changing morphlogy operation
 cnts = imutils.grab_contours(cnts)
 
 contour_unfiltered = img.copy()
