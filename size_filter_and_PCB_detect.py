@@ -22,7 +22,8 @@ MIN_AREA = 3500
 MAX_AREA = 8000
 
 # DETERMINE DPI by running DPI_calibration.py!!
-DPI = 5.795367506260126      # pixels per mm (must match the current camera height!)
+#DPI = 5.795367506260126      # pixels per mm (must match the current camera height!)
+Z = 450
 LINE_LENGTH_MM = 17
 
 # Green probe: two small patches, one on each side of the connector along the line
@@ -33,7 +34,25 @@ GREEN_HI = np.array([90, 255, 255])
 MIN_GREEN = 0.30             # the winning patch must be at least this green
 MIN_DIFF = 0.25              # and clearly greener than the other patch
 
+# -------------------------------- 
+# Camera calibration parameters, obtained from MATLAB
+# ----------------------------------
+fx = 2562.10035596914
+fy = 2562.15173894501
+cx = 1649.95172923836
+cy = 1228.53049286571
 
+k1 = 0.192807898722954
+k2 = -0.373987768898079
+p1 = 0.000666675204719012
+p2 = -0.00118704988531241
+
+DPI = Z/fx
+
+K = np.array([[fx, 0, cx - 1],
+              [0, fy, cy - 1],
+              [0,  0,  1]])
+dist = np.array([k1, k2, p1, p2, 0.0])   # k1, k2 = RadialDistortion; p1, p2 = TangentialDistortion; k3 = 0
 # ----------------------------------------------------------------------------
 # Helper functions
 # ----------------------------------------------------------------------------
