@@ -2,7 +2,6 @@ import os
 os.environ["QT_QPA_PLATFORM"] = "wayland"
 
 import cv2 as cv2
-import imutils
 import numpy as np
 import time
 import board
@@ -27,9 +26,13 @@ MAX_AREA = 6000
 Z = 450                      # camera -> pick plane distance in mm (must match the setup!)
 LINE_LENGTH_MM = 17
 
+# Black tray (outer size). A part only counts if its contour lies inside the tray contour in the tree.
+TRAY_LONG_MM, TRAY_SHORT_MM = 185.6, 146.6
+TRAY_TOL = 0.10              # allowed deviation of the measured tray size (the rim is at a slightly different height than Z)
+
 # Green probe: two small patches, one on each side of the connector along the line
 PROBE_MM = 7.0               # distance from the connector centre to each patch centre
-PATCH_HALF_MM = 1.0          # patch is a square of 2 * PATCH_HALF_MM on a side
+PATCH_HALF_MM = 2.0          # patch is a square of 2 * PATCH_HALF_MM on a side
 GREEN_LO = np.array([55, 60, 40])     # OpenCV hue runs 0-179
 GREEN_HI = np.array([90, 255, 255])
 MIN_GREEN = 0.30             # the winning patch must be at least this green
@@ -73,6 +76,40 @@ def green_fraction(hsv_img, centre, half):
     patch = hsv_img[y0:y1, x0:x1]
     mask = cv2.inRange(patch, GREEN_LO, GREEN_HI)
     return float(np.count_nonzero(mask)) / mask.size, (x0, y0, x1, y1)
+
+
+def find_tray(cnts):
+    """Index of the contour whose rotated-rectangle size matches the tray (largest one if several).
+    Returns None if nothing matches."""
+    best_idx, best_area = None, 0.0
+    largest = None
+    for i, c in enumerate(cnts):
+        _, (w, h), _ = cv2.minAreaRect(c)
+        long_mm, short_mm = max(w, h) / PX_PER_MM, min(w, h) / PX_PER_MM
+        area = cv2.contourArea(c)
+        if largest is None or area > largest[0]:
+            largest = (area, long_mm, short_mm)
+        if (abs(long_mm - TRAY_LONG_MM) < TRAY_TOL * TRAY_LONG_MM and
+                abs(short_mm - TRAY_SHORT_MM) < TRAY_TOL * TRAY_SHORT_MM and
+                area > best_area):
+            best_idx, best_area = i, area
+    if best_idx is None and largest is not None:
+        print(f"Tray not found. Largest contour is {largest[1]:.0f} x {largest[2]:.0f} mm, "
+              f"expected {TRAY_LONG_MM} x {TRAY_SHORT_MM} mm")
+    return best_idx
+
+
+def tree_depth_below(idx, root_idx, hier):
+    """How many levels below root_idx the contour idx sits in the contour tree
+    (1 = direct child, 2 = grandchild, ...). None if idx is not inside root_idx."""
+    depth = 0
+    parent = hier[idx][3]                  # hierarchy row = [next, previous, first child, parent]
+    while parent != -1:
+        depth += 1
+        if parent == root_idx:
+            return depth
+        parent = hier[parent][3]
+    return None
 
 
 # ----------------------------------------------------------------------------
@@ -123,11 +160,11 @@ cv2.imwrite("threshold-otsu-connector.png", thresh)
 
 kernel = np.ones((5, 5), np.uint8)  # square kernel for morphology operations
 # erosion = cv2.erode(thresh,kernel,iterations = 1) # thins out the contours
-# opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
 closing = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
 
-cnts = cv2.findContours(closing, cv2.RETR_TREE, cv2.CHAIN_APPROX_TC89_L1)  # change arg1, when changing morphlogy operation
-cnts = imutils.grab_contours(cnts)
+cnts, hierarchy = cv2.findContours(closing, cv2.RETR_TREE, cv2.CHAIN_APPROX_TC89_L1)  # change arg1, when changing morphlogy operation
+hier = hierarchy[0] if hierarchy is not None else []
 
 contour_unfiltered = img.copy()
 cv2.drawContours(contour_unfiltered, cnts, -1, (0, 255, 0), 2)
@@ -136,19 +173,34 @@ cv2.imwrite("contours-unfiltered.png", contour_unfiltered)
 # ----------------------------------------------------------------------------
 # Size filter (absolute window, no average)
 # ----------------------------------------------------------------------------
+# Tray: the contour that matches the tray size. Parts must be inside it in the tree.
+tray_idx = find_tray(cnts)
+if tray_idx is not None:
+    _, (tw, th), _ = cv2.minAreaRect(cnts[tray_idx])
+    print(f"Tray found: contour {tray_idx}, {max(tw, th) / PX_PER_MM:.1f} x {min(tw, th) / PX_PER_MM:.1f} mm")
+
 part_cnts = []
-for c in cnts:
+for i, c in enumerate(cnts):
     (x, y, w, h) = cv2.boundingRect(c)
     area = w * h
     if area >= 500:                       # print only meaningful blobs, not pixel dust
         print(f"bbox area={area}  at ({x},{y}) size {w}x{h}")
-    if MIN_AREA < area < MAX_AREA:
-        part_cnts.append(c)
+    if not (MIN_AREA < area < MAX_AREA):
+        continue
 
-print(f"\nContours passing the size filter: {len(part_cnts)} (expected 24)")
+    depth = tree_depth_below(i, tray_idx, hier) if tray_idx is not None else None
+    if depth is None:
+        print(f"  -> rejected: not inside the tray (centre {x + w // 2},{y + h // 2})")
+        continue
+    print(f"  -> inside the tray, tree depth {depth}")
+    part_cnts.append(c)
+
+print(f"\nContours passing the size and tray filters: {len(part_cnts)} (expected 3)")
 
 contour_filtered = img.copy()
 cv2.drawContours(contour_filtered, part_cnts, -1, (0, 255, 0), 2)
+if tray_idx is not None:
+    cv2.drawContours(contour_filtered, cnts, tray_idx, (255, 0, 0), 3)     # tray outline, blue
 cv2.imwrite("contours-filtered.png", contour_filtered)
 
 # ----------------------------------------------------------------------------
